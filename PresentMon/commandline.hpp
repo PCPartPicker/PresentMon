@@ -54,6 +54,7 @@ struct CommandLineArgs {
     bool mTryToElevate;
     bool mIncludeWindowsMixedReality;
     bool mMultiCsv;
+    bool mRecordAbsoluteTime;
 };
 
 bool ParseCommandLine(int argc, char** argv, CommandLineArgs* out);

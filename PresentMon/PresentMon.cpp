@@ -565,14 +565,14 @@ void PresentMon_Init(const CommandLineArgs& args, PresentMonData& pm)
 {
     pm.mArgs = &args;
 
-    if (!args.mEtlFileName)
+    if (!args.mEtlFileName && !args.mRecordAbsoluteTime)
     {
         QueryPerformanceCounter((PLARGE_INTEGER)&pm.mStartupQpcTime);
     }
     else
     {
-        // Reading events from ETL file so current QPC value is irrelevant. Update this 
-        // later from first event in the file.
+        // If reading events from ETL file so current QPC value is irrelevant and
+        // can later be updated if desired from first event in the file.
         pm.mStartupQpcTime = 0;
     }
 
@@ -943,7 +943,7 @@ void EtwConsumingThread(const CommandLineArgs& args)
                 ntProcessEvents.clear();
 
                 // If we are reading events from ETL file set start time to match time stamp of first event
-                if (data.mArgs->mEtlFileName && data.mStartupQpcTime == 0)
+                if (data.mArgs->mEtlFileName && data.mStartupQpcTime == 0 && !data.mArgs->mRecordAbsoluteTime)
                 {
                     data.mStartupQpcTime = session.startTime_;
                 }

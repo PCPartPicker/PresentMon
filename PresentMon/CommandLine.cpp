@@ -282,6 +282,7 @@ bool ParseCommandLine(int argc, char** argv, CommandLineArgs* args)
     args->mTryToElevate = true;
     args->mIncludeWindowsMixedReality = false;
     args->mMultiCsv = false;
+    args->mRecordAbsoluteTime = false;
 
     bool simple = false;
     bool verbose = false;
@@ -334,6 +335,7 @@ bool ParseCommandLine(int argc, char** argv, CommandLineArgs* args)
         else ARG1("-dont_restart_as_admin",  args->mTryToElevate               = false)
         else ARG1("-no_top",                 args->mSimpleConsole              = true)
         else ARG1("-include_mixed_reality",  args->mIncludeWindowsMixedReality = true)
+        else ARG1("-record_absolute_time",   args->mRecordAbsoluteTime         = true)
 
         // Provided argument wasn't recognized
         else fprintf(stderr, "error: %s '%s'.\n",
