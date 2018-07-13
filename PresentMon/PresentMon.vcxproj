@@ -73,30 +73,30 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>..\build\debug\bin\</OutDir>
-    <IntDir>..\build\debug\obj\x86\PresentMon\</IntDir>
-    <TargetName>$(ProjectName)32-$(PresentMonVersion)</TargetName>
+    <OutDir>$(SolutionDir)Binaries\$(PlatformTarget)\$(Configuration)\</OutDir>
+    <IntDir>$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)</TargetName>
     <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>..\build\debug\bin\</OutDir>
-    <IntDir>..\build\debug\obj\x64\PresentMon\</IntDir>
-    <TargetName>$(ProjectName)64-$(PresentMonVersion)</TargetName>
+    <OutDir>$(SolutionDir)Binaries\$(PlatformTarget)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)</TargetName>
     <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>..\build\release\bin\</OutDir>
-    <IntDir>..\build\release\obj\x86\PresentMon\</IntDir>
-    <TargetName>$(ProjectName)32-$(PresentMonVersion)</TargetName>
+    <OutDir>$(SolutionDir)Binaries\$(PlatformTarget)\$(Configuration)\</OutDir>
+    <IntDir>$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)</TargetName>
     <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>..\build\release\bin\</OutDir>
-    <IntDir>..\build\release\obj\x64\PresentMon\</IntDir>
-    <TargetName>$(ProjectName)64-$(PresentMonVersion)</TargetName>
+    <OutDir>$(SolutionDir)Binaries\$(PlatformTarget)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)</TargetName>
     <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -115,7 +115,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
       <AdditionalLibraryDirectories>..\build\debug\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>advapi32.lib;shell32.lib;shlwapi.lib;tdh.lib;PresentData32.lib;user32.lib</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;shell32.lib;shlwapi.lib;tdh.lib;user32.lib</AdditionalDependencies>
+      <UACExecutionLevel>HighestAvailable</UACExecutionLevel>
     </Link>
     <Manifest />
     <CustomBuildStep>
@@ -141,7 +142,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
       <AdditionalLibraryDirectories>..\build\debug\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>advapi32.lib;shell32.lib;shlwapi.lib;tdh.lib;PresentData64.lib;user32.lib</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;shell32.lib;shlwapi.lib;tdh.lib;user32.lib</AdditionalDependencies>
+      <UACExecutionLevel>HighestAvailable</UACExecutionLevel>
     </Link>
     <Manifest />
     <CustomBuildStep>
@@ -171,7 +173,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
       <AdditionalLibraryDirectories>..\build\release\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>advapi32.lib;shell32.lib;shlwapi.lib;tdh.lib;PresentData32.lib;user32.lib</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;shell32.lib;shlwapi.lib;tdh.lib;user32.lib</AdditionalDependencies>
+      <UACExecutionLevel>HighestAvailable</UACExecutionLevel>
     </Link>
     <Manifest />
     <CustomBuildStep>
@@ -201,7 +204,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
       <AdditionalLibraryDirectories>..\build\release\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>advapi32.lib;shell32.lib;shlwapi.lib;tdh.lib;PresentData64.lib;user32.lib</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;shell32.lib;shlwapi.lib;tdh.lib;user32.lib</AdditionalDependencies>
+      <UACExecutionLevel>HighestAvailable</UACExecutionLevel>
     </Link>
     <Manifest />
     <CustomBuildStep>
@@ -221,6 +225,11 @@
     <ClInclude Include="CommandLine.hpp" />
     <ClInclude Include="PresentMon.hpp" />
     <ClInclude Include="TraceSession.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PresentData\PresentData.vcxproj">
+      <Project>{892028e5-32f6-45fc-8ab2-90fcbcac4bf6}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
