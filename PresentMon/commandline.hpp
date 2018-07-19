@@ -55,6 +55,8 @@ struct CommandLineArgs {
     bool mIncludeWindowsMixedReality;
     bool mMultiCsv;
     bool mRecordAbsoluteTime;
+    bool mSimpleExit;
+    bool mLeaveConsoleTitle;
 };
 
 bool ParseCommandLine(int argc, char** argv, CommandLineArgs* out);

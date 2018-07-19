@@ -23,6 +23,7 @@ SOFTWARE.
 #include <assert.h>
 #include <thread>
 #include <windows.h>
+#include <iostream>
 
 #include "CommandLine.hpp"
 #include "PresentMon.hpp"
@@ -63,13 +64,18 @@ void StopEtwThreads(CommandLineArgs* args)
     args->mRecordingCount++;
 }
 
+void DoExit()
+{
+    PostStopRecording();
+    PostQuitProcess();
+}
+
 BOOL WINAPI ConsoleCtrlHandler(
     _In_ DWORD dwCtrlType
     )
 {
     (void) dwCtrlType;
-    PostStopRecording();
-    PostQuitProcess();
+    DoExit();
     return TRUE;
 }
 
@@ -286,8 +292,11 @@ int main(int argc, char** argv)
 
     int ret = 0;
 
-    // Set console title to command line arguments
-    SetConsoleTitle(argc, argv);
+    if (!args.mLeaveConsoleTitle)
+    {
+        // Set console title to command line arguments
+        SetConsoleTitle(argc, argv);
+    }
 
     // If the user wants to use the scroll lock key as an indicator of when
     // present mon is recording events, make sure it is disabled to start.
@@ -317,12 +326,24 @@ int main(int argc, char** argv)
         PostToggleRecording(args);
     }
 
-    // Enter the main thread message loop.  This thread will block waiting for
-    // any messages, which will control the hotkey-toggling and process
-    // shutdown.
-    for (MSG message = {}; GetMessageW(&message, hWnd, 0, 0); ) {
-        TranslateMessage(&message);
-        DispatchMessageW(&message);
+    if (args.mSimpleExit)
+    {
+        std::thread v([&]
+        {
+            std::string s;
+            std::getline(std::cin, s);
+            DoExit();
+        });
+        v.detach();
+    }
+    {
+        // Enter the main thread message loop.  This thread will block waiting for
+        // any messages, which will control the hotkey-toggling and process
+        // shutdown.
+        for (MSG message = {}; GetMessageW(&message, hWnd, 0, 0); ) {
+            TranslateMessage(&message);
+            DispatchMessageW(&message);
+        }
     }
 
     // Everything should be shutdown by now.
