@@ -908,6 +908,14 @@ void EtwConsumingThread(const CommandLineArgs& args)
 
     if (args.mSimpleConsole) {
         printf("Started recording.\n");
+        if (args.mScrollLockToggle && (GetKeyState(VK_SCROLL) & 1) == 0)
+        {
+            printf("Recording is currently paused because scroll lock is off");
+        }
+        else
+        {
+            printf("Recording is currently enabled");
+        }
     }
     if (args.mScrollLockIndicator) {
         EnableScrollLock(true);
