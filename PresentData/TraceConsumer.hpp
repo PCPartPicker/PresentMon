@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Intel Corporation
+Copyright 2017-2019 Intel Corporation
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -22,40 +22,87 @@ SOFTWARE.
 
 #pragma once
 
-#include <windows.h>
+#define NOMINMAX
+#include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <string>
-#include <tdh.h>
+#include <unordered_map>
+#include <vector>
+#include <windows.h>
+#include <evntcons.h> // must include after windows.h
 
-void PrintEventInformation(FILE* fp, EVENT_RECORD* pEventRecord);
-std::wstring GetEventTaskName(EVENT_RECORD* pEventRecord);
+struct EventMetadataKey {
+    GUID guid_;
+    EVENT_DESCRIPTOR desc_;
+};
 
-template <typename T>
-bool GetEventData(EVENT_RECORD* pEventRecord, wchar_t const* name, T* out, bool bPrintOnError = true)
-{
-    PROPERTY_DATA_DESCRIPTOR descriptor;
-    descriptor.PropertyName = (ULONGLONG) name;
-    descriptor.ArrayIndex = ULONG_MAX;
+struct EventMetadataKeyHash { size_t operator()(EventMetadataKey const& k) const; }; 
+struct EventMetadataKeyEqual { bool operator()(EventMetadataKey const& lhs, EventMetadataKey const& rhs) const; };
 
-    auto status = TdhGetProperty(pEventRecord, 0, nullptr, 1, &descriptor, sizeof(T), (BYTE*) out);
-    if (status != ERROR_SUCCESS) {
-        if (bPrintOnError) {
-            fprintf(stderr, "error: could not get event %ls property (error=%lu).\n", name, status);
-            PrintEventInformation(stderr, pEventRecord);
+struct EventDataDesc {
+    wchar_t const* name_;   // Property name
+    uint32_t arrayIndex_;   // Array index (optional)
+    void* data_;            // OUT pointer to property data
+    uint32_t size_;         // OUT size of property data
+
+    template<typename T> T GetData() const
+    {
+        if (data_ == nullptr) {
+            static bool first = true;
+            if (first) {
+                fprintf(stderr, "error: could not find event's %ls property.\n", name_);
+                first = false;
+            }
+            assert(false);
+            return T {};
         }
-        return false;
+        if (size_ > sizeof(T)) {
+            static bool first = true;
+            if (first) {
+                fprintf(stderr, "error: event's %ls property had unexpected size (%u > %zu).\n", name_, size_, sizeof(T));
+                first = false;
+            }
+            assert(false);
+            return *(T*) data_;
+        }
+        if (size_ < sizeof(T)) {
+
+            // This is allowed and expected.  e.g., sometimes we want a
+            // uint32_t promoted into uint64_t (for example to simplify pointer
+            // handling).  It may also be a mistake though so we keep a warning
+            // in DEBUG_VERBOSE.
+#if DEBUG_VERBOSE
+            static bool first = true;
+            if (first) {
+                fprintf(stderr, "warning: event's %ls property had unexpected size (%u < %zu).\n", name_, size_, sizeof(T));
+                first = false;
+            }
+#endif
+            T t {};
+            memcpy(&t, data_, size_);
+            return t;
+        }
+
+        return *(T*) data_;
     }
+};
 
-    return true;
-}
+struct EventMetadata {
+    std::unordered_map<EventMetadataKey, std::vector<uint8_t>, EventMetadataKeyHash, EventMetadataKeyEqual> metadata_;
 
-template <typename T>
-T GetEventData(EVENT_RECORD* pEventRecord, wchar_t const* name)
-{
-    T value = {};
-    auto ok = GetEventData(pEventRecord, name, &value);
-    (void) ok;
-    return value;
-}
+    void AddMetadata(EVENT_RECORD* eventRecord);
+    void GetEventData(EVENT_RECORD* eventRecord, EventDataDesc* desc, uint32_t descCount);
 
-template <> bool GetEventData<std::string>(EVENT_RECORD* pEventRecord, wchar_t const* name, std::string* out, bool bPrintOnError);
+    template<typename T> T GetEventData(EVENT_RECORD* eventRecord, wchar_t const* name, uint32_t arrayIndex = 0)
+    {
+        EventDataDesc desc = {};
+        desc.name_ = name;
+        desc.arrayIndex_ = arrayIndex;
+        GetEventData(eventRecord, &desc, 1);
+
+        return desc.GetData<T>();
+    }
+};
+
+template<> std::string EventMetadata::GetEventData<std::string>(EVENT_RECORD* eventRecord, wchar_t const* name, uint32_t arrayIndex);
+template<> std::wstring EventMetadata::GetEventData<std::wstring>(EVENT_RECORD* eventRecord, wchar_t const* name, uint32_t arrayIndex);

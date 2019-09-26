@@ -22,10 +22,11 @@ SOFTWARE.
 
 #pragma once
 
+#include "../PresentData/MixedRealityTraceConsumer.hpp"
+
 #include <deque>
 #include <stdint.h>
-
-#include "MixedRealityTraceConsumer.hpp"
+#include <unordered_map>
 
 struct LateStageReprojectionRuntimeStats {
     template <typename T>
@@ -82,25 +83,27 @@ struct LateStageReprojectionRuntimeStats {
 struct LateStageReprojectionData {
     size_t mLifetimeLsrMissedFrames = 0;
     size_t mLifetimeAppMissedFrames = 0;
-    uint64_t mLastUpdateTicks = 0;
     std::deque<LateStageReprojectionEvent> mLSRHistory;
     std::deque<LateStageReprojectionEvent> mDisplayedLSRHistory;
     std::deque<LateStageReprojectionEvent> mSourceHistory;
 
-    void PruneDeque(std::deque<LateStageReprojectionEvent>& lsrHistory, uint64_t perfFreq, uint32_t msTimeDiff, uint32_t maxHistLen);
+    void PruneDeque(std::deque<LateStageReprojectionEvent>& lsrHistory, uint32_t msTimeDiff, uint32_t maxHistLen);
     void AddLateStageReprojection(LateStageReprojectionEvent& p);
-    void UpdateLateStageReprojectionInfo(uint64_t now, uint64_t perfFreq);
-    double ComputeHistoryTime(uint64_t qpcFreq);
-    double ComputeSourceFps(uint64_t qpcFreq);
-    double ComputeDisplayedFps(uint64_t qpcFreq);
-    double ComputeFps(uint64_t qpcFreq);
-    size_t ComputeHistorySize();
-    LateStageReprojectionRuntimeStats ComputeRuntimeStats(uint64_t perfFreq);
+    void UpdateLateStageReprojectionInfo();
+    double ComputeHistoryTime() const;
+    double ComputeSourceFps() const;
+    double ComputeDisplayedFps() const;
+    double ComputeFps() const;
+    size_t ComputeHistorySize() const;
+    LateStageReprojectionRuntimeStats ComputeRuntimeStats() const;
 
-    bool IsStale(uint64_t now) const;
     bool HasData() const { return !mLSRHistory.empty(); }
 
 private:
-    double ComputeFps(const std::deque<LateStageReprojectionEvent>& lsrHistory, uint64_t qpcFreq);
-    double ComputeHistoryTime(const std::deque<LateStageReprojectionEvent>& lsrHistory, uint64_t qpcFreq);
+    double ComputeFps(const std::deque<LateStageReprojectionEvent>& lsrHistory) const;
+    double ComputeHistoryTime(const std::deque<LateStageReprojectionEvent>& lsrHistory) const;
 };
+
+FILE* CreateLsrCsvFile(char const* path);
+void UpdateLsrCsv(LateStageReprojectionData& lsr, ProcessInfo* proc, LateStageReprojectionEvent& p);
+void UpdateConsole(std::unordered_map<uint32_t, ProcessInfo> const& activeProcesses, LateStageReprojectionData& lsr);

@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Intel Corporation
+Copyright 2017-2019 Intel Corporation
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -22,59 +22,21 @@ SOFTWARE.
 
 #pragma once
 
-#include <assert.h>
+#define NOMINMAX
+
 #include <deque>
 #include <map>
+#include <memory>
 #include <mutex>
-#include <numeric>
-#include <set>
+#include <stdint.h>
+#include <string>
+#include <tuple>
 #include <vector>
 #include <windows.h>
 #include <evntcons.h> // must include after windows.h
 
-struct __declspec(uuid("{CA11C036-0102-4A2D-A6AD-F03CFED5D3C9}")) DXGI_PROVIDER_GUID_HOLDER;
-struct __declspec(uuid("{802ec45a-1e99-4b83-9920-87c98277ba9d}")) DXGKRNL_PROVIDER_GUID_HOLDER;
-struct __declspec(uuid("{8c416c79-d49b-4f01-a467-e56d3aa8234c}")) WIN32K_PROVIDER_GUID_HOLDER;
-struct __declspec(uuid("{9e9bba3c-2e38-40cb-99f4-9e8281425164}")) DWM_PROVIDER_GUID_HOLDER;
-struct __declspec(uuid("{783ACA0A-790E-4d7f-8451-AA850511C6B9}")) D3D9_PROVIDER_GUID_HOLDER;
-struct __declspec(uuid("{3d6fa8d0-fe05-11d0-9dda-00c04fd7ba7c}")) NT_PROCESS_EVENT_GUID_HOLDER;
-static const auto DXGI_PROVIDER_GUID = __uuidof(DXGI_PROVIDER_GUID_HOLDER);
-static const auto DXGKRNL_PROVIDER_GUID = __uuidof(DXGKRNL_PROVIDER_GUID_HOLDER);
-static const auto WIN32K_PROVIDER_GUID = __uuidof(WIN32K_PROVIDER_GUID_HOLDER);
-static const auto DWM_PROVIDER_GUID = __uuidof(DWM_PROVIDER_GUID_HOLDER);
-static const auto D3D9_PROVIDER_GUID = __uuidof(D3D9_PROVIDER_GUID_HOLDER);
-static const auto NT_PROCESS_EVENT_GUID = __uuidof(NT_PROCESS_EVENT_GUID_HOLDER);
-
-// These are only for Win7 support
-namespace Win7
-{
-    struct __declspec(uuid("{65cd4c8a-0848-4583-92a0-31c0fbaf00c0}")) DXGKRNL_PROVIDER_GUID_HOLDER;
-    struct __declspec(uuid("{069f67f2-c380-4a65-8a61-071cd4a87275}")) DXGKBLT_GUID_HOLDER;
-    struct __declspec(uuid("{22412531-670b-4cd3-81d1-e709c154ae3d}")) DXGKFLIP_GUID_HOLDER;
-    struct __declspec(uuid("{c19f763a-c0c1-479d-9f74-22abfc3a5f0a}")) DXGKPRESENTHISTORY_GUID_HOLDER;
-    struct __declspec(uuid("{295e0d8e-51ec-43b8-9cc6-9f79331d27d6}")) DXGKQUEUEPACKET_GUID_HOLDER;
-    struct __declspec(uuid("{5ccf1378-6b2c-4c0f-bd56-8eeb9e4c5c77}")) DXGKVSYNCDPC_GUID_HOLDER;
-    struct __declspec(uuid("{547820fe-5666-4b41-93dc-6cfd5dea28cc}")) DXGKMMIOFLIP_GUID_HOLDER;
-    struct __declspec(uuid("{8c9dd1ad-e6e5-4b07-b455-684a9d879900}")) DWM_PROVIDER_GUID_HOLDER;
-    static const auto DXGKRNL_PROVIDER_GUID = __uuidof(DXGKRNL_PROVIDER_GUID_HOLDER);
-    static const auto DXGKBLT_GUID = __uuidof(DXGKBLT_GUID_HOLDER);
-    static const auto DXGKFLIP_GUID = __uuidof(DXGKFLIP_GUID_HOLDER);
-    static const auto DXGKPRESENTHISTORY_GUID = __uuidof(DXGKPRESENTHISTORY_GUID_HOLDER);
-    static const auto DXGKQUEUEPACKET_GUID = __uuidof(DXGKQUEUEPACKET_GUID_HOLDER);
-    static const auto DXGKVSYNCDPC_GUID = __uuidof(DXGKVSYNCDPC_GUID_HOLDER);
-    static const auto DXGKMMIOFLIP_GUID = __uuidof(DXGKMMIOFLIP_GUID_HOLDER);
-    static const auto DWM_PROVIDER_GUID = __uuidof(DWM_PROVIDER_GUID_HOLDER);
-};
-
-// Forward-declare structs that will be used by both modern and legacy dxgkrnl events.
-struct DxgkBltEventArgs;
-struct DxgkFlipEventArgs;
-struct DxgkQueueSubmitEventArgs;
-struct DxgkQueueCompleteEventArgs;
-struct DxgkMMIOFlipEventArgs;
-struct DxgkVSyncDPCEventArgs;
-struct DxgkSubmitPresentHistoryEventArgs;
-struct DxgkPropagatePresentHistoryEventArgs;
+#include "Debug.hpp"
+#include "TraceConsumer.hpp"
 
 template <typename mutex_t> std::unique_lock<mutex_t> scoped_lock(mutex_t &m)
 {
@@ -106,56 +68,114 @@ enum class Runtime
 };
 
 struct NTProcessEvent {
-    uint32_t ProcessId;
     std::string ImageFileName;  // If ImageFileName.empty(), then event is that process ending
+    uint64_t QpcTime;
+    uint32_t ProcessId;
 };
 
 struct PresentEvent {
-    // Available from DXGI Present
+    // Initial event information (might be a kernel event if not presented
+    // through DXGI or D3D9)
     uint64_t QpcTime;
+    uint32_t ProcessId;
+    uint32_t ThreadId;
+
+    // Timestamps observed during present pipeline
+    uint64_t TimeTaken;     // QPC duration between runtime present start and end
+    uint64_t ReadyTime;     // QPC value when the last GPU commands completed prior to presentation
+    uint64_t ScreenTime;    // QPC value when the present was displayed on screen
+
+    // Extra present parameters obtained through DXGI or D3D9 present
     uint64_t SwapChainAddress;
     int32_t SyncInterval;
     uint32_t PresentFlags;
-    uint32_t ProcessId;
 
+    // Properties deduced by watching events through present pipeline
+    uint64_t Hwnd;
+    uint64_t TokenPtr;
+    uint32_t QueueSubmitSequence;
+    Runtime Runtime;
     PresentMode PresentMode;
+    PresentResult FinalState;
     bool SupportsTearing;
     bool MMIO;
     bool SeenDxgkPresent;
     bool SeenWin32KEvents;
     bool WasBatched;
     bool DwmNotified;
-
-    Runtime Runtime;
-
-    // Time spent in DXGI Present call
-    uint64_t TimeTaken;
-
-    // Timestamp of "ready" state (GPU work completed)
-    uint64_t ReadyTime;
-
-    // Timestamp of "complete" state (data on screen or discarded)
-    uint64_t ScreenTime;
-    PresentResult FinalState;
-    uint32_t PlaneIndex;
+    bool Completed;
 
     // Additional transient state
-    uint32_t QueueSubmitSequence;
-    uint32_t RuntimeThread;
-    uint64_t Hwnd;
-    uint64_t TokenPtr;
     std::deque<std::shared_ptr<PresentEvent>> DependentPresents;
-    bool Completed;
+
+#if DEBUG_VERBOSE
+    uint64_t Id;
+#endif
 
     PresentEvent(EVENT_HEADER const& hdr, ::Runtime runtime);
     ~PresentEvent();
+
+    void SetPresentMode(::PresentMode mode);
+    void SetDwmNotified(bool notified);
+    void SetTokenPtr(uint64_t tokenPtr);
+
+private:
+    PresentEvent(PresentEvent const& copy); // dne
 };
+
+// A high-level description of the sequence of events for each present type,
+// ignoring runtime end:
+//
+// Hardware Legacy Flip:
+//   Runtime PresentStart -> Flip (by thread/process, for classification) -> QueueSubmit (by thread, for submit sequence) ->
+//   MMIOFlip (by submit sequence, for ready time and immediate flags) [-> VSyncDPC (by submit sequence, for screen time)]
+//
+// Composed Flip (FLIP_SEQUENTIAL, FLIP_DISCARD, FlipEx):
+//   Runtime PresentStart -> TokenCompositionSurfaceObject (by thread/process, for classification and token key) ->
+//   PresentHistoryDetailed (by thread, for token ptr) -> QueueSubmit (by thread, for submit sequence) ->
+//   DxgKrnl_PresentHistory (by token ptr, for ready time) and TokenStateChanged (by token key, for discard status and screen time)
+//
+// Hardware Direct Flip:
+//   N/A, not currently uniquely detectable (follows the same path as composed flip)
+//
+// Hardware Independent Flip:
+//   Follows composed flip, TokenStateChanged indicates IndependentFlip -> MMIOFlip (by submit sequence, for immediate flags)
+//   [-> VSyncDPC or HSyncDPC (by submit sequence, for screen time)]
+//
+// Hardware Composed Independent Flip:
+//   Identical to hardware independent flip, but MMIOFlipMPO is received instead of MMIOFlip
+//
+// Composed Copy with GPU GDI (a.k.a. Win7 Blit):
+//   Runtime PresentStart -> DxgKrnl_Blit (by thread/process, for classification) ->
+//   DxgKrnl_PresentHistoryDetailed (by thread, for token ptr and classification) -> DxgKrnl_Present (by thread, for hWnd) ->
+//   DxgKrnl_PresentHistory (by token ptr, for ready time) -> DWM UpdateWindow (by hWnd, marks hWnd active for composition) ->
+//   DWM Present (consumes most recent present per hWnd, marks DWM thread ID) ->
+//   A fullscreen present is issued by DWM, and when it completes, this present is on screen
+//
+// Hardware Copy to front buffer:
+//   Runtime PresentStart -> DxgKrnl_Blit (by thread/process, for classification) -> QueueSubmit (by thread, for submit sequence) ->
+//   QueueComplete (by submit sequence, indicates ready and screen time)
+//   Distinction between FS and windowed blt is done by LACK of other events
+//
+// Composed Copy with CPU GDI (a.k.a. Vista Blit):
+//   Runtime PresentStart -> DxgKrnl_Blit (by thread/process, for classification) ->
+//   SubmitPresentHistory (by thread, for token ptr, legacy blit token, and classification) ->
+//   DxgKrnl_PresentHistory (by token ptr, for ready time) ->
+//   DWM FlipChain (by legacy blit token, for hWnd and marks hWnd active for composition) ->
+//   Follows the Windowed_Blit path for tracking to screen
+//
+// Composed Composition Atlas (DirectComposition):
+//   SubmitPresentHistory (use model field for classification, get token ptr) -> DxgKrnl_PresentHistory (by token ptr) ->
+//   Assume DWM will compose this buffer on next present (missing InFrame event), follow windowed blit paths to screen time
 
 struct PMTraceConsumer
 {
-    PMTraceConsumer(bool simple) : mSimpleMode(simple) { }
+    PMTraceConsumer(bool filteredEvents, bool simple) : mFilteredEvents(filteredEvents), mSimpleMode(simple) { }
     ~PMTraceConsumer();
 
+    EventMetadata mMetadata;
+
+    bool mFilteredEvents;
     bool mSimpleMode;
 
     std::mutex mMutex;
@@ -164,39 +184,7 @@ struct PMTraceConsumer
     // These will be handed off to the consumer thread.
     std::vector<std::shared_ptr<PresentEvent>> mCompletedPresents;
 
-    // A high-level description of the sequence of events for each present type, ignoring runtime end:
-    // Hardware Legacy Flip:
-    //   Runtime PresentStart -> Flip (by thread/process, for classification) -> QueueSubmit (by thread, for submit sequence) ->
-    //    MMIOFlip (by submit sequence, for ready time and immediate flags) [-> VSyncDPC (by submit sequence, for screen time)]
-    // Composed Flip (FLIP_SEQUENTIAL, FLIP_DISCARD, FlipEx),
-    //   Runtime PresentStart -> TokenCompositionSurfaceObject (by thread/process, for classification and token key) ->
-    //    PresentHistoryDetailed (by thread, for token ptr) -> QueueSubmit (by thread, for submit sequence) ->
-    //    PropagatePresentHistory (by token ptr, for ready time) and TokenStateChanged (by token key, for discard status and screen time)
-    // Hardware Direct Flip,
-    //   N/A, not currently uniquely detectable (follows the same path as composed_flip)
-    // Hardware Independent Flip,
-    //   Follows composed flip, TokenStateChanged indicates IndependentFlip -> MMIOFlip (by submit sequence, for immediate flags) [->
-    //   VSyncDPC (by submit sequence, for screen time)]
-    // Hardware Composed Independent Flip,
-    //   Identical to IndependentFlip, but MMIOFlipMPO is received instead
-    // Composed Copy with GPU GDI (a.k.a. Win7 Blit),
-    //   Runtime PresentStart -> Blt (by thread/process, for classification) -> PresentHistoryDetailed (by thread, for token ptr and classification) ->
-    //    DxgKrnl Present (by thread, for hWnd) -> PropagatePresentHistory (by token ptr, for ready time) ->
-    //    DWM UpdateWindow (by hWnd, marks hWnd active for composition) -> DWM Present (consumes most recent present per hWnd, marks DWM thread ID) ->
-    //    A fullscreen present is issued by DWM, and when it completes, this present is on screen
-    // Hardware Copy to front buffer,
-    //   Runtime PresentStart -> Blt (by thread/process, for classification) -> QueueSubmit (by thread, for submit sequence) ->
-    //    QueueComplete (by submit sequence, indicates ready and screen time)
-    //    Distinction between FS and windowed blt is done by LACK of other events
-    // Composed Copy with CPU GDI (a.k.a. Vista Blit),
-    //   Runtime PresentStart -> Blt (by thread/process, for classification) -> SubmitPresentHistory (by thread, for token ptr, legacy blit token, and classification) ->
-    //    PropagatePresentHsitory (by token ptr, for ready time) -> DWM FlipChain (by legacy blit token, for hWnd and marks hWnd active for composition) ->
-    //    Follows the Windowed_Blit path for tracking to screen
-    // Composed Composition Atlas (DirectComposition),
-    //   SubmitPresentHistory (use model field for classification, get token ptr) -> PropagatePresentHistory (by token ptr) ->
-    //    Assume DWM will compose this buffer on next present (missing InFrame event), follow windowed blit paths to screen time
-
-    // For each process, stores each present started. Used for present batching
+    // For each process, stores each in-progress present in order. Used for present batching
     std::map<uint32_t, std::map<uint64_t, std::shared_ptr<PresentEvent>>> mPresentsByProcess;
 
     // For each (process, swapchain) pair, stores each present started. Used to ensure consumer sees presents targeting the same swapchain in the order they were submitted.
@@ -220,17 +208,45 @@ struct PMTraceConsumer
     typedef std::tuple<uint64_t, uint64_t, uint64_t> Win32KPresentHistoryTokenKey;
     std::map<Win32KPresentHistoryTokenKey, std::shared_ptr<PresentEvent>> mWin32KPresentHistoryTokens;
 
-    // DxgKrnl present history tokens are uniquely identified by a single pointer
-    // These are used for all types of windowed presents to track a "ready" time
+    // DxgKrnl present history tokens are uniquely identified and used for all
+    // types of windowed presents to track a "ready" time.
+    //
+    // The token is assigned to the last present on the same thread, on
+    // non-REDIRECTED_GDI model DxgKrnl_Event_PresentHistoryDetailed or
+    // DxgKrnl_Event_SubmitPresentHistory events.
+    //
+    // We stop tracking the token on a DxgKrnl_Event_PropagatePresentHistory
+    // (which signals handing-off to DWM) -- or in CompletePresent() if the
+    // hand-off wasn't detected.
+    //
+    // The following events lookup presents based on this token:
+    // Dwm_Event_FlipChain_Pending, Dwm_Event_FlipChain_Complete,
+    // Dwm_Event_FlipChain_Dirty,
     std::map<uint64_t, std::shared_ptr<PresentEvent>> mDxgKrnlPresentHistoryTokens;
 
     // For blt presents on Win7, it's not possible to distinguish between DWM-off or fullscreen blts, and the DWM-on blt to redirection bitmaps.
     // The best we can do is make the distinction based on the next packet submitted to the context. If it's not a PHT, it's not going to DWM.
     std::map<uint64_t, std::shared_ptr<PresentEvent>> mBltsByDxgContext;
 
-    // Present by window, used for determining superceding presents
-    // For windowed blit presents, when DWM issues a present event, we choose the most recent event as the one that will make it to screen
-    std::map<uint64_t, std::shared_ptr<PresentEvent>> mPresentByWindow;
+    // mLastWindowPresent is used as storage for presents handed off to DWM.
+    //
+    // For blit (Composed_Copy_GPU_GDI) presents:
+    // DxgKrnl_Event_PropagatePresentHistory causes the present to be moved
+    // from mDxgKrnlPresentHistoryTokens to mLastWindowPresent.
+    //
+    // For flip presents: Dwm_Event_FlipChain_Pending,
+    // Dwm_Event_FlipChain_Complete, or Dwm_Event_FlipChain_Dirty sets
+    // mLastWindowPresent to the present that matches the token from
+    // mDxgKrnlPresentHistoryTokens (but doesn't clear mDxgKrnlPresentHistory).
+    //
+    // Dwm_Event_GetPresentHistory will move all the Composed_Copy_GPU_GDI and
+    // Composed_Copy_CPU_GDI mLastWindowPresents to mPresentsWaitingForDWM
+    // before clearing mLastWindowPresent.
+    //
+    // For Win32K-tracked events, Win32K_Event_TokenStateChanged InFrame will
+    // set mLastWindowPresent (and set any current present as discarded), and
+    // Win32K_Event_TokenStateChanged Confirmed will clear mLastWindowPresent.
+    std::map<uint64_t, std::shared_ptr<PresentEvent>> mLastWindowPresent;
 
     // Presents that will be completed by DWM's next present
     std::deque<std::shared_ptr<PresentEvent>> mPresentsWaitingForDWM;
@@ -266,18 +282,19 @@ struct PMTraceConsumer
         return true;
     }
 
-    void HandleDxgkBlt(DxgkBltEventArgs& args);
-    void HandleDxgkFlip(DxgkFlipEventArgs& args);
-    void HandleDxgkQueueSubmit(DxgkQueueSubmitEventArgs& args);
-    void HandleDxgkQueueComplete(DxgkQueueCompleteEventArgs& args);
-    void HandleDxgkMMIOFlip(DxgkMMIOFlipEventArgs& args);
-    void HandleDxgkVSyncDPC(DxgkVSyncDPCEventArgs& args);
-    void HandleDxgkSubmitPresentHistoryEventArgs(DxgkSubmitPresentHistoryEventArgs& args);
-    void HandleDxgkPropagatePresentHistoryEventArgs(DxgkPropagatePresentHistoryEventArgs& args);
+    void HandleDxgkBlt(EVENT_HEADER const& hdr, uint64_t hwnd, bool redirectedPresent);
+    void HandleDxgkFlip(EVENT_HEADER const& hdr, int32_t flipInterval, bool mmio);
+    void HandleDxgkQueueSubmit(EVENT_HEADER const& hdr, uint32_t packetType, uint32_t submitSequence, uint64_t context, bool present, bool supportsDxgkPresentEvent);
+    void HandleDxgkQueueComplete(EVENT_HEADER const& hdr, uint32_t submitSequence);
+    void HandleDxgkMMIOFlip(EVENT_HEADER const& hdr, uint32_t flipSubmitSequence, uint32_t flags);
+    void HandleDxgkSyncDPC(EVENT_HEADER const& hdr, uint32_t flipSubmitSequence);
+    void HandleDxgkSubmitPresentHistoryEventArgs(EVENT_HEADER const& hdr, uint64_t token, uint64_t tokenData, PresentMode knownPresentMode);
+    void HandleDxgkPropagatePresentHistoryEventArgs(EVENT_HEADER const& hdr, uint64_t token);
 
-    void CompletePresent(std::shared_ptr<PresentEvent> p);
+    void CompletePresent(std::shared_ptr<PresentEvent> p, uint32_t recurseDepth=0);
     decltype(mPresentByThreadId.begin()) FindOrCreatePresent(EVENT_HEADER const& hdr);
-    void RuntimePresentStart(PresentEvent &event);
+    decltype(mPresentByThreadId.begin()) CreatePresent(std::shared_ptr<PresentEvent> present, decltype(mPresentsByProcess.begin()->second)& processMap);
+    void CreatePresent(std::shared_ptr<PresentEvent> present);
     void RuntimePresentStop(EVENT_HEADER const& hdr, bool AllowPresentBatching);
 };
 
@@ -287,6 +304,7 @@ void HandleD3D9Event(EVENT_RECORD* pEventRecord, PMTraceConsumer* pmConsumer);
 void HandleDXGKEvent(EVENT_RECORD* pEventRecord, PMTraceConsumer* pmConsumer);
 void HandleWin32kEvent(EVENT_RECORD* pEventRecord, PMTraceConsumer* pmConsumer);
 void HandleDWMEvent(EVENT_RECORD* pEventRecord, PMTraceConsumer* pmConsumer);
+void HandleMetadataEvent(EVENT_RECORD* pEventRecord, PMTraceConsumer* pmConsumer);
 
 // These are only for Win7 support
 namespace Win7

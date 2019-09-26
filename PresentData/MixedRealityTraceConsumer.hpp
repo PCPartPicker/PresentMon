@@ -226,10 +226,12 @@ struct LateStageReprojectionEvent {
 
 struct MRTraceConsumer
 {
-    MRTraceConsumer(bool simple) 
+    MRTraceConsumer(bool simple)
         : mSimpleMode(simple)
     {}
     ~MRTraceConsumer();
+
+    EventMetadata mMetadata;
 
     const bool mSimpleMode;
 
