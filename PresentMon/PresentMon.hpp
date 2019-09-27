@@ -78,7 +78,7 @@ struct CommandLineArgs {
     bool mOutputCsvToFile;
     bool mOutputCsvToStdout;
     bool mOutputQpcTime;
-    bool mOutputQpcTimeInSeconds;
+    bool mAbsoluteTime;
     bool mScrollLockIndicator;
     bool mExcludeDropped;
     bool mTerminateOnProcExit;

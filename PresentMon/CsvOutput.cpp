@@ -86,9 +86,6 @@ static void WriteCsvHeader(FILE* fp)
     if (args.mOutputQpcTime) {
         fprintf(fp, ",QPCTime");
     }
-    if (args.mOutputQpcTimeInSeconds) {
-        fprintf(fp, ",QPCTimeInSeconds");
-    }
     fprintf(fp, "\n");
 }
 
@@ -117,7 +114,7 @@ void UpdateCsv(ProcessInfo* processInfo, SwapChainData const& chain, PresentEven
     auto lastPresented = chain.mPresentHistory[(chain.mNextPresentIndex - 1) % SwapChainData::PRESENT_HISTORY_MAX_COUNT].get();
 
     // Compute frame statistics.
-    double timeInSeconds          = QpcToSeconds(p.QpcTime);
+    double timeInSeconds          = args.mAbsoluteTime ? QpcDeltaToSeconds(p.QpcTime) : QpcToSeconds(p.QpcTime);
     double msBetweenPresents      = 1000.0 * QpcDeltaToSeconds(p.QpcTime - lastPresented->QpcTime);
     double msInPresentApi         = 1000.0 * QpcDeltaToSeconds(p.TimeTaken);
     double msUntilRenderComplete  = 0.0;
@@ -157,10 +154,6 @@ void UpdateCsv(ProcessInfo* processInfo, SwapChainData const& chain, PresentEven
     }
     if (args.mOutputQpcTime) {
         fprintf(fp, ",%llu", p.QpcTime);
-    }
-    if (args.mOutputQpcTimeInSeconds) {
-        //Not QpcToSeconds - that normalizes to the start time of the session
-        fprintf(fp, ",%.6lf", QpcDeltaToSeconds(p.QpcTime));
     }
     fprintf(fp, "\n");
 }

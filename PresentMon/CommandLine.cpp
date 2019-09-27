@@ -220,6 +220,7 @@ static void PrintHelp()
         "-no_top",                  "Don't display active swap chains in the console window.",
         "-qpc_time",                "Output present time as performance counter value (see"
                                     " QueryPerformanceCounter()).",
+        "-absolute_time",           "Do not shift times so that the TimeInSeconds column starts at time 0",
 
         "Recording options", nullptr,
         "-hotkey [key]",            "Use specified key to start and stop recording, writing to a"
@@ -317,7 +318,7 @@ bool ParseCommandLine(int argc, char** argv)
     args->mOutputCsvToFile = true;
     args->mOutputCsvToStdout = false;
     args->mOutputQpcTime = false;
-    args->mOutputQpcTimeInSeconds = false;
+    args->mAbsoluteTime = false;
     args->mScrollLockIndicator = false;
     args->mExcludeDropped = false;
     args->mVerbosity = Verbosity::Normal;
@@ -370,7 +371,7 @@ bool ParseCommandLine(int argc, char** argv)
         else ARG1("-no_csv",                 args->mOutputCsvToFile            = false)
         else ARG1("-no_top",                 args->mConsoleOutputType          = ConsoleOutput::Simple)
         else ARG1("-qpc_time",               args->mOutputQpcTime              = true)
-        else ARG1("-qpc_time_in_seconds",    args->mOutputQpcTimeInSeconds     = true)
+        else ARG1("-absolute_time",          args->mAbsoluteTime               = true)
 
         // Recording options:
         else if (strcmp(argv[i], "-hotkey") == 0) { if (AssignHotkey(++i, argc, argv, args)) continue; }
@@ -435,9 +436,9 @@ bool ParseCommandLine(int argc, char** argv)
             fprintf(stderr, "warning: -qpc_time and -no_csv arguments are not compatible; ignoring -qpc_time.\n");
             args->mOutputQpcTime = false;
         }
-        if (args->mOutputQpcTimeInSeconds) {
-            fprintf(stderr, "warning: -qpc_time_in_seconds and -no_csv arguments are not compatible; ignoring -qpc_time.\n");
-            args->mOutputQpcTimeInSeconds = false;
+        if (args->mAbsoluteTime) {
+            fprintf(stderr, "warning: -absolute_time and -no_csv arguments are not compatible; ignoring -qpc_time.\n");
+            args->mAbsoluteTime = false;
         }
         if (args->mMultiCsv) {
             fprintf(stderr, "warning: -multi_csv and -no_csv arguments are not compatible; ignoring -multi_csv.\n");
