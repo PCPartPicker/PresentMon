@@ -78,6 +78,7 @@ struct CommandLineArgs {
     bool mOutputCsvToFile;
     bool mOutputCsvToStdout;
     bool mOutputQpcTime;
+    bool mOutputQpcTimeInSeconds;
     bool mScrollLockIndicator;
     bool mExcludeDropped;
     bool mTerminateOnProcExit;
@@ -87,6 +88,7 @@ struct CommandLineArgs {
     bool mIncludeWindowsMixedReality;
     bool mMultiCsv;
     bool mStopExistingSession;
+    bool mSimpleExit;
 };
 
 // CSV output only requires last presented/displayed event to compute frame

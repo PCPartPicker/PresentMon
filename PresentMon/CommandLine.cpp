@@ -317,6 +317,7 @@ bool ParseCommandLine(int argc, char** argv)
     args->mOutputCsvToFile = true;
     args->mOutputCsvToStdout = false;
     args->mOutputQpcTime = false;
+    args->mOutputQpcTimeInSeconds = false;
     args->mScrollLockIndicator = false;
     args->mExcludeDropped = false;
     args->mVerbosity = Verbosity::Normal;
@@ -369,6 +370,7 @@ bool ParseCommandLine(int argc, char** argv)
         else ARG1("-no_csv",                 args->mOutputCsvToFile            = false)
         else ARG1("-no_top",                 args->mConsoleOutputType          = ConsoleOutput::Simple)
         else ARG1("-qpc_time",               args->mOutputQpcTime              = true)
+        else ARG1("-qpc_time_in_seconds",    args->mOutputQpcTimeInSeconds     = true)
 
         // Recording options:
         else if (strcmp(argv[i], "-hotkey") == 0) { if (AssignHotkey(++i, argc, argv, args)) continue; }
@@ -432,6 +434,10 @@ bool ParseCommandLine(int argc, char** argv)
         if (args->mOutputQpcTime) {
             fprintf(stderr, "warning: -qpc_time and -no_csv arguments are not compatible; ignoring -qpc_time.\n");
             args->mOutputQpcTime = false;
+        }
+        if (args->mOutputQpcTimeInSeconds) {
+            fprintf(stderr, "warning: -qpc_time_in_seconds and -no_csv arguments are not compatible; ignoring -qpc_time.\n");
+            args->mOutputQpcTimeInSeconds = false;
         }
         if (args->mMultiCsv) {
             fprintf(stderr, "warning: -multi_csv and -no_csv arguments are not compatible; ignoring -multi_csv.\n");

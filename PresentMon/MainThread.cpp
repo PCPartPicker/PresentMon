@@ -21,6 +21,7 @@ SOFTWARE.
 */
 
 #include "PresentMon.hpp"
+#include <iostream>
 
 enum {
     HOTKEY_ID = 0x80,
